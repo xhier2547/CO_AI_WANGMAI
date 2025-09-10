@@ -1,0 +1,77 @@
+# ----------------
+# Python
+# ----------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.log
+
+# ----------------
+# Virtual Environment
+# ----------------
+.venv/
+env/
+venv/
+
+# ----------------
+# Jupyter Notebook
+# ----------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ----------------
+# Data & Outputs
+# ----------------
+images/
+processed/
+outputs/
+*.jpg
+*.jpeg
+*.png
+
+# ----------------
+# CSV / Results
+# ----------------
+usage_stats.csv
+hourly_stats.csv
+period_stats.csv
+scheduler_log.txt
+
+# ----------------
+# Credentials & Tokens
+# ----------------
+credentials.json
+token.json
+token.pkl
+service_account.json
+
+# ----------------
+# Streamlit
+# ----------------
+.streamlit/
+*.toml
+
+# ----------------
+# System / OS
+# ----------------
+.DS_Store
+Thumbs.db
+
+# ----------------
+# Docker
+# ----------------
+*.pid
+*.sock
+
+# ----------------
+# IDEs
+# ----------------
+.vscode/
+.idea/
+
+# ----------------
+# YOLO Models (ใหญ่เกิน 100MB, ห้าม push)
+# ----------------
+*.pt
