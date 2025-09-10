@@ -22,10 +22,11 @@ latest_time = latest["timestamp"]
 
 st.title("📊 Co-working Space Dashboard")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 col1.metric("👥 People", int(latest["people_count"]))
 col2.metric("🪑 Tables Used", f"{latest['table_used']} / {latest['table_total']}")
-col3.metric("⏰ Last Update", latest_time.strftime("%Y-%m-%d %H:%M:%S"))
+col3.metric("<> Bean Bag Used", f"{latest['beanbag_used']} / {latest['beanbag_total']}")
+col4.metric("⏰ Last Update", latest_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 st.markdown("---")
 
