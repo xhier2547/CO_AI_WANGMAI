@@ -2,18 +2,40 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from streamlit_autorefresh import st_autorefresh   # ✅ ใช้ auto-refresh
 
 # ---------------- CONFIG ---------------- #
 st.set_page_config(page_title="Co-working Dashboard", layout="wide")
 
+# ---------------- REFRESH CONTROL ---------------- #
+# Auto-refresh ทุก 600 วินาที (10 นาที)
+count = st_autorefresh(interval=600 * 1000, key="auto_refresh")
+
+# ถ้าเป็นรอบ auto-refresh (count > 0) แสดง toast
+if count > 0:
+    if hasattr(st, "toast"):
+        st.toast("🔄 Refreshing (auto)...")
+    else:
+        st.info("🔄 Refreshing (auto)...")
+
+# ฟังก์ชัน rerun ให้รองรับทั้งเวอร์ชันใหม่/เก่า
+def do_rerun():
+    if hasattr(st, "rerun"):
+        st.rerun()
+    else:
+        st.experimental_rerun()
+
+# ปุ่ม refresh manual
+if st.button("🔄 Refresh Now"):
+    if hasattr(st, "toast"):
+        st.toast("🔄 Refreshing (manual)...")
+    else:
+        st.info("🔄 Refreshing (manual)...")
+    do_rerun()
+
 # ---------------- LOAD DATA ---------------- #
-# อ่านแค่ 6 คอลัมน์แรก (ตัด path รูปออก)
 df = pd.read_csv("usage_stats.csv", usecols=[0,1,2,3,4,5])
-
-# parse timestamp
 df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-
-# drop invalid rows
 df = df.dropna(subset=["timestamp"])
 
 # ---------------- CURRENT STATUS ---------------- #
@@ -25,7 +47,7 @@ st.title("📊 Co-working Space Dashboard")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("👥 People", int(latest["people_count"]))
 col2.metric("🪑 Tables Used", f"{latest['table_used']} / {latest['table_total']}")
-col3.metric("<> Bean Bag Used", f"{latest['beanbag_used']} / {latest['beanbag_total']}")
+col3.metric("🛋️ Bean Bag Used", f"{latest['beanbag_used']} / {latest['beanbag_total']}")
 col4.metric("⏰ Last Update", latest_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 st.markdown("---")
@@ -33,7 +55,6 @@ st.markdown("---")
 # ---------------- LINE CHARTS + HOURLY GROUP ---------------- #
 st.subheader("📊 Charts")
 
-# เตรียมค่าเฉลี่ยรายชั่วโมง
 df["hour"] = df["timestamp"].dt.hour
 hourly = df.groupby("hour")[["people_count", "table_used"]].mean().reset_index()
 

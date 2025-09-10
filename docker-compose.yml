@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  pipeline:
+    build: .
+    container_name: coai-pipeline
+    command: python pipeline_loop.py
+    volumes:
+      - .:/app
+    restart: always
+
+  dashboard:
+    build: .
+    container_name: coai-dashboard
+    command: streamlit run dashboard.py --server.headless true --server.port=8501
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    restart: always
