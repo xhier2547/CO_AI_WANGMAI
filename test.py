@@ -5,20 +5,23 @@ import csv
 import os
 import shutil
 from datetime import datetime
+from pathlib import Path
 
 # ---------------- CONFIG ---------------- #
-MODEL_PATH = "yolov8s.pt"
-INPUT_FOLDER = "images/"
-OUTPUT_FOLDER = "outputs/"
-PROCESSED_FOLDER = "processed/"
-COCO_JSON = "tables.json"
-CSV_FILE = "usage_stats.csv"
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_PATH = BASE_DIR / "yolov8s.pt"
+INPUT_FOLDER = BASE_DIR / "images"
+OUTPUT_FOLDER = BASE_DIR / "outputs"
+PROCESSED_FOLDER = BASE_DIR / "processed"
+COCO_JSON = BASE_DIR / "tables.json"
+CSV_FILE = BASE_DIR / "usage_stats.csv"
 
 CONF_THRESHOLD = 0.3
 IOU_THRESHOLD = 0.2
 
 # โหลด YOLOv8
-model = YOLO(MODEL_PATH)
+model = YOLO(str(MODEL_PATH))
 CLASS_NAMES = model.names
 
 # โหลด bounding box โต๊ะจาก JSON
@@ -37,8 +40,8 @@ for ann in coco["annotations"]:
             "y2": int(y + h)
         })
 
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+OUTPUT_FOLDER.mkdir(exist_ok=True)
+PROCESSED_FOLDER.mkdir(exist_ok=True)
 
 # ---------------- HELPER ---------------- #
 def iou(boxA, boxB):
@@ -52,12 +55,12 @@ def iou(boxA, boxB):
     return inter / float(areaA + areaB - inter)
 
 def process_image(image_path):
-    img = cv2.imread(image_path)
+    img = cv2.imread(str(image_path))
     if img is None:
         print(f"⚠️ ไม่พบไฟล์ภาพ: {image_path}")
         return None
 
-    results = model.predict(source=image_path, conf=CONF_THRESHOLD, verbose=False)
+    results = model.predict(source=str(image_path), conf=CONF_THRESHOLD, verbose=False)
 
     # ---------------- DETECT PEOPLE ---------------- #
     people_boxes = []
@@ -91,10 +94,9 @@ def process_image(image_path):
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     filename = os.path.basename(image_path)
-    output_img_path = os.path.join(OUTPUT_FOLDER, f"detect_{filename}")
-    cv2.imwrite(output_img_path, img)
+    output_img_path = OUTPUT_FOLDER / f"detect_{filename}"
+    cv2.imwrite(str(output_img_path), img)
 
-    # ✅ cast int ทุกค่า ก่อนเขียน CSV
     return [
         timestamp,
         int(people_count),
@@ -102,11 +104,11 @@ def process_image(image_path):
         int(table_total),
         int(beanbag_used),
         int(beanbag_total),
-        output_img_path
+        str(output_img_path)
     ]
 
 # ---------------- MAIN ---------------- #
-if not os.path.exists(CSV_FILE):
+if not CSV_FILE.exists():
     with open(CSV_FILE, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -114,7 +116,7 @@ if not os.path.exists(CSV_FILE):
             "beanbag_used", "beanbag_total", "output_image"
         ])
 
-image_files = [os.path.join(INPUT_FOLDER, f) for f in os.listdir(INPUT_FOLDER)
+image_files = [INPUT_FOLDER / f for f in os.listdir(INPUT_FOLDER)
                if f.lower().endswith((".jpg", ".jpeg", ".png"))]
 
 if image_files:
@@ -124,12 +126,12 @@ if image_files:
         with open(CSV_FILE, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(row)
-        print(f"✅ Processed latest file: {os.path.basename(latest_file)} "
+        print(f"✅ Processed latest file: {latest_file.name} "
               f"People={row[1]}, Tables={row[2]}/{row[3]}")
 
         # ย้ายไฟล์ไป processed/
-        dest_path = os.path.join(PROCESSED_FOLDER, os.path.basename(latest_file))
-        shutil.move(latest_file, dest_path)
-        print(f"📦 Moved {os.path.basename(latest_file)} → processed/")
+        dest_path = PROCESSED_FOLDER / latest_file.name
+        shutil.move(str(latest_file), str(dest_path))
+        print(f"📦 Moved {latest_file.name} → processed/")
 else:
     print("⚠️ ไม่พบไฟล์ใน images/")
