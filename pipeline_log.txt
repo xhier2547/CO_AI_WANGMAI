@@ -13,3 +13,36 @@ Traceback (most recent call last):
     with open(client_secrets_file, "r") as json_file:
          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 FileNotFoundError: [Errno 2] No such file or directory: 'credentials.json'
+[2025-09-25 03:25:44.832313] Please visit this URL to authorize this application: https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=576997041960-fjk93nn84ge5qhhm47kbrtjs085plle0.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A55522%2F&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.readonly&state=sZjgXtZrc6btqJrvTPS19Kt9VtZunK&access_type=offline
+[2025-09-25 03:25:44.832313] Traceback (most recent call last):
+[2025-09-25 03:25:44.833313]   File "C:\Users\wator\Documents\AIECO\COAIWANGMAI\CO_AI_WANGMAI\download_from_drive.py", line 67, in <module>
+[2025-09-25 03:25:44.833313]     download_latest_file()
+[2025-09-25 03:25:44.833313]   File "C:\Users\wator\Documents\AIECO\COAIWANGMAI\CO_AI_WANGMAI\download_from_drive.py", line 61, in download_latest_file
+[2025-09-25 03:25:44.834315]     print(f"\u2b07\ufe0f Download {file_name}: {int(status.progress() * 100)}%")
+[2025-09-25 03:25:44.834315]   File "C:\Users\wator\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in encode
+[2025-09-25 03:25:44.848852]     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+[2025-09-25 03:25:44.849851]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[2025-09-25 03:25:44.849851] UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+[2025-09-25 03:26:09.821330] Traceback (most recent call last):
+[2025-09-25 03:26:09.821330]   File "C:\Users\wator\Documents\AIECO\COAIWANGMAI\CO_AI_WANGMAI\test.py", line 20, in <module>
+[2025-09-25 03:26:09.822336]     model = YOLO("yolov8x.pt")
+[2025-09-25 03:26:09.822336]             ^^^^^^^^^^^^^^^^^^
+[2025-09-25 03:26:09.822336]   File "C:\Users\wator\AppData\Local\Programs\Python\Python311\Lib\site-packages\ultralytics\engine\model.py", line 94, in __init__
+[2025-09-25 03:26:09.823335]     self._load(model, task)
+[2025-09-25 03:26:09.823335]   File "C:\Users\wator\AppData\Local\Programs\Python\Python311\Lib\site-packages\ultralytics\engine\model.py", line 146, in _load
+[2025-09-25 03:26:09.823335]     self.model, self.ckpt = attempt_load_one_weight(weights)
+[2025-09-25 03:26:09.823335]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[2025-09-25 03:26:09.824336]   File "C:\Users\wator\AppData\Local\Programs\Python\Python311\Lib\site-packages\ultralytics\nn\tasks.py", line 628, in attempt_load_one_weight
+[2025-09-25 03:26:09.824336]     ckpt, weight = torch_safe_load(weight)  # load ckpt
+[2025-09-25 03:26:09.824336]                    ^^^^^^^^^^^^^^^^^^^^^^^
+[2025-09-25 03:26:09.824336]   File "C:\Users\wator\AppData\Local\Programs\Python\Python311\Lib\site-packages\ultralytics\nn\tasks.py", line 567, in torch_safe_load
+[2025-09-25 03:26:09.825336]     return torch.load(file, map_location='cpu'), file  # load
+[2025-09-25 03:26:09.825336]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[2025-09-25 03:26:09.825336]   File "C:\Users\wator\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\serialization.py", line 1529, in load
+[2025-09-25 03:26:09.826337]     raise pickle.UnpicklingError(_get_wo_message(str(e))) from None
+[2025-09-25 03:26:09.826337] _pickle.UnpicklingError: Weights only load failed. This file can still be loaded, to do so you have two options, [1mdo those steps only if you trust the source of the checkpoint[0m. 
+[2025-09-25 03:26:09.826337] 	(1) In PyTorch 2.6, we changed the default value of the `weights_only` argument in `torch.load` from `False` to `True`. Re-running `torch.load` with `weights_only` set to `False` will likely succeed, but it can result in arbitrary code execution. Do it only if you got the file from a trusted source.
+[2025-09-25 03:26:09.827845] 	(2) Alternatively, to load with `weights_only=True` please check the recommended steps in the following error message.
+[2025-09-25 03:26:09.827845] 	WeightsUnpickler error: Unsupported global: GLOBAL ultralytics.nn.tasks.DetectionModel was not an allowed global by default. Please use `torch.serialization.add_safe_globals([ultralytics.nn.tasks.DetectionModel])` or the `torch.serialization.safe_globals([ultralytics.nn.tasks.DetectionModel])` context manager to allowlist this global if you trust this class/function.
+[2025-09-25 03:26:09.827845] 
+[2025-09-25 03:26:09.827845] Check the documentation of torch.load to learn more about types accepted by default with weights_only https://pytorch.org/docs/stable/generated/torch.load.html.

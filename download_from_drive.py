@@ -1,67 +1,121 @@
 from __future__ import print_function
-import os
-import io
+import os, io, sys, pickle
+from pathlib import Path
+from datetime import datetime
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-import pickle
+from PIL import Image
 
 # ---------------- CONFIG ---------------- #
-SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-FOLDER_ID = "1VY1Y9xOQnSrO81ZaDo1RMtf2yfhds6BK"
-OUTPUT_FOLDER = "images/"
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+BASE_DIR = Path(os.getcwd())
+IMAGE_DIR = BASE_DIR / "images"
+PROCESSED_DIR = BASE_DIR / "processed"
+CREDENTIALS_FILE = BASE_DIR / "credentials.json"
+TOKEN_FILE = BASE_DIR / "token.pkl"
 
+# Google Drive Folder ID
+FOLDER_ID = "1VY1Y9xOQnSrO81ZaDo1RMtf2yfhds6BK"
+
+IMAGE_DIR.mkdir(exist_ok=True)
+PROCESSED_DIR.mkdir(exist_ok=True)
+
+# แก้ encoding ป้องกัน emoji error บน Windows
+sys.stdout.reconfigure(encoding="utf-8")
+
+SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+
+# ---------------- AUTH ---------------- #
 def authenticate():
-    """ยืนยันตัวตนด้วย OAuth"""
     creds = None
-    if os.path.exists('token.pkl'):
-        with open('token.pkl', 'rb') as token:
+    if TOKEN_FILE.exists():
+        with open(TOKEN_FILE, "rb") as token:
             creds = pickle.load(token)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('token.pkl', 'wb') as token:
+        with open(TOKEN_FILE, "wb") as token:
             pickle.dump(creds, token)
+
     return creds
 
-def download_latest_file():
-    """โหลดไฟล์ล่าสุดจากโฟลเดอร์"""
+# ---------------- FIX ORIENTATION ---------------- #
+def ensure_horizontal(image_path: Path):
+    """หมุนรูปให้เป็นแนวนอนเสมอ"""
+    try:
+        img = Image.open(image_path)
+        w, h = img.size
+        if h > w:  # ถ้าแนวตั้ง → หมุน 90 องศา
+            img = img.rotate(-90, expand=True)
+        # กันรูปกลับหัว (rotate 180) กรณี orientation ผิด
+        if img.size[0] < img.size[1]:
+            img = img.rotate(180, expand=True)
+
+        img.save(image_path)
+        print(f"↩️ Rotated {image_path.name} to horizontal")
+    except Exception as e:
+        print(f"⚠️ Could not rotate {image_path.name}: {e}")
+
+# ---------------- DOWNLOAD ---------------- #
+def download_files():
     creds = authenticate()
-    service = build('drive', 'v3', credentials=creds)
+    service = build("drive", "v3", credentials=creds)
 
-    # ค้นหาไฟล์ในโฟลเดอร์
-    results = service.files().list(
-        q=f"'{FOLDER_ID}' in parents and mimeType contains 'image/'",
-        orderBy="createdTime desc",
-        pageSize=1,
-        fields="files(id, name, createdTime)"
-    ).execute()
+    all_files = []
+    page_token = None
 
-    items = results.get('files', [])
-    if not items:
-        print("⚠️ ไม่พบไฟล์ในโฟลเดอร์")
-        return None
+    while True:
+        response = service.files().list(
+            q=f"'{FOLDER_ID}' in parents and mimeType contains 'image/'",
+            orderBy="createdTime desc",
+            fields="nextPageToken, files(id, name, createdTime)",
+            pageSize=1000,
+            pageToken=page_token
+        ).execute()
 
-    latest_file = items[0]
-    file_id = latest_file['id']
-    file_name = latest_file['name']
-    request = service.files().get_media(fileId=file_id)
+        all_files.extend(response.get("files", []))
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
 
-    output_path = os.path.join(OUTPUT_FOLDER, file_name)
-    with io.FileIO(output_path, 'wb') as fh:
+    if not all_files:
+        print("⚠️ No files found in Google Drive folder.")
+        return
+
+    print(f"📂 Found {len(all_files)} images in Google Drive folder")
+
+    for file in all_files:
+        file_id = file["id"]
+        file_name = file["name"]
+
+        # ถ้ามีใน images/ หรือ processed/ → ข้าม
+        if (IMAGE_DIR / file_name).exists() or (PROCESSED_DIR / file_name).exists():
+            print(f"⏭️ Skip existing file: {file_name}")
+            continue
+
+        request = service.files().get_media(fileId=file_id)
+        fh = io.FileIO(IMAGE_DIR / file_name, "wb")
         downloader = MediaIoBaseDownload(fh, request)
+
         done = False
         while not done:
             status, done = downloader.next_chunk()
-            print(f"⬇️ Download {file_name}: {int(status.progress() * 100)}%")
+            if status:
+                print(f"⬇️ Download {file_name}: {int(status.progress() * 100)}%")
+        print(f"✅ Saved: {file_name}")
 
-    print(f"✅ Saved: {output_path}")
-    return output_path
+        # หมุนภาพให้เป็นแนวนอน
+        ensure_horizontal(IMAGE_DIR / file_name)
 
-if __name__ == '__main__':
-    download_latest_file()
+    print("🎉 All new files downloaded.")
+
+# ---------------- MAIN ---------------- #
+if __name__ == "__main__":
+    print(f"===== DOWNLOAD START {datetime.now()} =====")
+    download_files()
+    print(f"===== DOWNLOAD END {datetime.now()} =====")
