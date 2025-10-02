@@ -30,14 +30,16 @@ def get_latest_status():
     ts = latest["timestamp"]
     people = int(latest["people_count"])
     tables = f"{int(latest['table_used'])}/{int(latest['table_total'])}"
+    beanbags = f"{int(latest['beanbag_used'])}/{int(latest['beanbag_total'])}"
 
     text = (
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "🏠 ห้อง Co-AI \n"
+        "ห้อง Co-AI \n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        f"👥 จำนวนคน : {people}\n"
-        f"🪑 การใช้โต๊ะ : {tables}\n"
-        f"⏰ เวลา     : {ts}\n"
+        f"จำนวนคน : {people}\n"
+        f"การใช้โต๊ะ : {tables}\n"
+        f"การใช้ Beanbag : {beanbags}\n"
+        f"เวลา : {ts}\n"
         "━━━━━━━━━━━━━━━━━━━━"
     )
     return text

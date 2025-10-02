@@ -75,3 +75,5 @@ Thumbs.db
 # YOLO Models (ใหญ่เกิน 100MB, ห้าม push)
 # ----------------
 *.pt
+runs/
+train_beanbag/

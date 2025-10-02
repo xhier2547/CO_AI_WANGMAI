@@ -1,49 +1,36 @@
-import subprocess
-import time
-import os
+import subprocess, sys, os
 from pathlib import Path
 from datetime import datetime
-import sys
 
-# ---------------- CONFIG ---------------- #
 BASE_DIR = Path(os.getcwd())
-DOWNLOAD_FILE = BASE_DIR / "download_from_drive.py"
-TEST_FILE = BASE_DIR / "test.py"
 
-# ---------------- RUN COMMAND ---------------- #
-def run_command(cmd, cwd=BASE_DIR):
-    """Run command and stream logs (UTF-8 safe)."""
+def run_command(cmd):
     process = subprocess.Popen(
         cmd,
-        cwd=cwd,
+        cwd=BASE_DIR,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
-        errors="replace"  # ✅ ป้องกัน error encoding
+        errors="replace"
     )
-
     for line in process.stdout:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {line}", end="")
-
     process.wait()
     return process.returncode
 
-# ---------------- MAIN ---------------- #
 def main():
     print(f"===== PIPELINE START {datetime.now()} =====")
 
-    # 1) ดาวน์โหลดไฟล์ใหม่จาก Google Drive
-    ret = run_command([sys.executable, str(DOWNLOAD_FILE)])
-    if ret != 0:
-        print("❌ download_from_drive.py failed.")
-        return
+    # 1) โหลดภาพใหม่จาก Google Drive
+    run_command([sys.executable, str(BASE_DIR / "download_from_drive.py")])
 
-    # 2) รัน YOLO ตรวจจับและบันทึกลง CSV
-    ret = run_command([sys.executable, str(TEST_FILE)])
+    # 2) รัน detection (test.py)
+    ret = run_command([sys.executable, str(BASE_DIR / "test.py")])
     if ret != 0:
         print("❌ test.py failed.")
-        return
+    else:
+        print("✅ test.py finished.")
 
     print(f"===== PIPELINE END {datetime.now()} =====")
 
