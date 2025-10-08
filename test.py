@@ -6,6 +6,8 @@ from ultralytics.utils.plotting import Annotator
 from datetime import datetime
 import torch
 from PIL import Image
+import numpy as np
+import cv2
 
 # ---------------- CONFIG ---------------- #
 BASE_DIR = Path(os.getcwd())
@@ -33,9 +35,9 @@ except ImportError:
     pass
 
 # ---------------- LOAD YOLO MODELS ---------------- #
-model_people_table = YOLO("yolov8x.pt")   # detect person + table
-model_beanbag = YOLO("best.pt")           # detect beanbag
-
+model_people = YOLO("yolov8x.pt")     # detect only people
+model_table = YOLO("table.pt")        # custom-trained table
+model_beanbag = YOLO("beanbag.pt")    # custom-trained beanbag
 
 # ---------------- HELPER FUNCTIONS ---------------- #
 def parse_timestamp_from_filename(filename: str):
@@ -49,55 +51,114 @@ def parse_timestamp_from_filename(filename: str):
         pass
     return datetime.now()
 
+def analyze_table_usage(image, box):
+    """วิเคราะห์โต๊ะว่ามีของวางไหม (ถ้ามีของวาง >30% ของพื้นที่ = ใช้งาน)"""
+    x1, y1, x2, y2 = map(int, box)
+    crop = np.array(image)[y1:y2, x1:x2]
+    if crop.size == 0:
+        return False
+    hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
+    lower_white = np.array([0, 0, 180])
+    upper_white = np.array([180, 60, 255])
+    mask = cv2.inRange(hsv, lower_white, upper_white)
+    white_ratio = mask.sum() / 255 / (mask.shape[0] * mask.shape[1] + 1e-6)
+    return white_ratio < 0.7  # True = มีของวางเกิน 30%
 
+def bbox_iou(box1, box2):
+    """คำนวณ IoU ระหว่าง 2 กล่อง"""
+    x1, y1, x2, y2 = box1
+    x1b, y1b, x2b, y2b = box2
+    xi1, yi1 = max(x1, x1b), max(y1, y1b)
+    xi2, yi2 = min(x2, x2b), min(y2, y2b)
+    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+    box1_area = (x2 - x1) * (y2 - y1)
+    box2_area = (x2b - x1b) * (y2b - y1b)
+    union_area = box1_area + box2_area - inter_area
+    return inter_area / union_area if union_area else 0
+
+def center_in_box(center, box):
+    """ตรวจว่าจุดศูนย์กลางคนอยู่ใน beanbag ไหม"""
+    x, y = center
+    x1, y1, x2, y2 = box
+    return x1 <= x <= x2 and y1 <= y <= y2
+
+# ---------------- CORE LOGIC ---------------- #
 def process_image(img_path: Path):
-    # run prediction (ไม่เซฟอัตโนมัติ)
-    results_people_table = model_people_table.predict(
-        source=str(img_path), save=False, verbose=False
-    )
-    results_beanbag = model_beanbag.predict(
-        source=str(img_path), save=False, verbose=False
-    )
-
-    # counts
-    people, tables_used, tables_total = 0, 0, 7
-    beanbags_used, beanbags_total = 0, 8
-
-    # โหลดภาพต้นฉบับเพื่อวาดผลรวม
     im = Image.open(img_path).convert("RGB")
+
+    # === Run All Models === #
+    results_people = model_people.predict(source=str(img_path), save=False, verbose=False)
+    results_table = model_table.predict(source=str(img_path), save=False, verbose=False)
+    results_beanbag = model_beanbag.predict(source=str(img_path), save=False, verbose=False)
+
     annotator = Annotator(im)
+    people_boxes, table_boxes, beanbag_boxes = [], [], []
 
-    # จาก yolov8x (person + table)
-    for r in results_people_table:
-        for box, cls_id in zip(r.boxes.xyxy, r.boxes.cls):
-            cls_name = model_people_table.names[int(cls_id)]
-            if cls_name.lower() == "person":
-                people += 1
-            elif "table" in cls_name.lower():
-                tables_used += 1
-            # วาด bounding box
-            annotator.box_label(box, cls_name, color=(0, 255, 0))
+    # ---------------- PEOPLE ---------------- #
+    for r in results_people:
+        for box, cls_id, conf in zip(r.boxes.xyxy, r.boxes.cls, r.boxes.conf):
+            if model_people.names[int(cls_id)].lower() == "person":
+                box = box.tolist()
+                conf = float(conf)
+                people_boxes.append(box)
+                annotator.box_label(box, f"person {conf*100:.1f}%", color=(0, 255, 0))
 
-    # จาก best.pt (beanbag)
+    # ---------------- TABLE ---------------- #
+    for r in results_table:
+        for box, cls_id, conf in zip(r.boxes.xyxy, r.boxes.cls, r.boxes.conf):
+            if "table" in model_table.names[int(cls_id)].lower():
+                box = box.tolist()
+                conf = float(conf)
+                table_boxes.append((box, conf))
+
+    # ---------------- BEANBAG ---------------- #
     for r in results_beanbag:
-        for box, cls_id in zip(r.boxes.xyxy, r.boxes.cls):
-            cls_name = model_beanbag.names[int(cls_id)]
-            if "beanbag" in cls_name.lower():
-                beanbags_used += 1
-            # วาด bounding box
-            annotator.box_label(box, cls_name, color=(255, 0, 0))
+        for box, cls_id, conf in zip(r.boxes.xyxy, r.boxes.cls, r.boxes.conf):
+            if "beanbag" in model_beanbag.names[int(cls_id)].lower():
+                box = box.tolist()
+                conf = float(conf)
+                beanbag_boxes.append((box, conf))
 
-    # เซฟภาพรวม
+    # === TABLE LOGIC === #
+    tables_total = len(table_boxes)
+    tables_used = 0
+    for box, conf in table_boxes:
+        used = analyze_table_usage(im, box)
+        color = (0, 200, 255) if used else (150, 150, 150)
+        status = "USED" if used else "FREE"
+        annotator.box_label(box, f"table {status} {conf*100:.1f}%", color=color)
+        if used:
+            tables_used += 1
+
+    # === BEANBAG LOGIC === #
+    beanbags_total = len(beanbag_boxes)
+    beanbags_used = 0
+    for b_box, conf in beanbag_boxes:
+        used = False
+        for p_box in people_boxes:
+            iou = bbox_iou(b_box, p_box)
+            px1, py1, px2, py2 = p_box
+            person_center = ((px1 + px2) / 2, (py1 + py2) / 2)
+            if iou > 0.2 or center_in_box(person_center, b_box):
+                used = True
+                break
+        color = (255, 0, 0) if used else (120, 120, 255)
+        status = "USED" if used else "FREE"
+        annotator.box_label(b_box, f"beanbag {status} {conf*100:.1f}%", color=color)
+        if used:
+            beanbags_used += 1
+
+    # === PEOPLE COUNT === #
+    people_count = len(people_boxes)
+
+    # === SAVE OUTPUT === #
     save_path = OUTPUT_FOLDER / img_path.name
-    annotator.result().save(save_path)
+    Image.fromarray(annotator.result()).save(save_path)
 
-    # timestamp
     ts = parse_timestamp_from_filename(img_path.name)
-
-    # append CSV
     row = {
         "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
-        "people_count": people,
+        "people_count": people_count,
         "table_used": tables_used,
         "table_total": tables_total,
         "beanbag_used": beanbags_used,
@@ -106,14 +167,17 @@ def process_image(img_path: Path):
     }
 
     file_exists = CSV_FILE.exists()
-    df = pd.DataFrame([row])
-    df.to_csv(CSV_FILE, mode="a", header=not file_exists, index=False)
+    pd.DataFrame([row]).to_csv(CSV_FILE, mode="a", header=not file_exists, index=False)
 
-    # move processed file
-    img_path.rename(PROCESSED_FOLDER / img_path.name)
+    # ✅ ป้องกัน error จากไฟล์ชื่อซ้ำใน processed/
+    target_path = PROCESSED_FOLDER / img_path.name
+    if target_path.exists():
+        new_name = f"{target_path.stem}_{datetime.now().strftime('%H%M%S')}{target_path.suffix}"
+        target_path = PROCESSED_FOLDER / new_name
 
-    print(f"✅ {img_path.name}: People={people}, Tables={tables_used}/{tables_total}, Beanbags={beanbags_used}/{beanbags_total}")
+    img_path.rename(target_path)
 
+    print(f"✅ {img_path.name}: 👥 {people_count} | 🪑 Table {tables_used}/{tables_total} | 🛋 Beanbag {beanbags_used}/{beanbags_total}")
 
 # ---------------- MAIN ---------------- #
 def main():
@@ -125,4 +189,6 @@ def main():
         process_image(img)
 
 if __name__ == "__main__":
+    print("🚀 COAI Ultra Smart Detector Starting...")
     main()
+    print("✅ All images processed successfully.")
