@@ -225,8 +225,16 @@ Services exposed:
 
 ---
 
-## 8. License
+## 8. Future Roadmap & Enhancements
 
-Copyright (c) 2026 QIER. All rights reserved.
+- **Unified Multi-Class Detection**: Consolidate the multi-stage model architecture (separate YOLOv8 person, table, and beanbag models plus ResNet-18 classifier) into a single, end-to-end multi-class detector optimized with TensorRT or ONNX Runtime for edge deployment.
+- **Enterprise Database Persistence**: Transition from CSV-based logging to a high-throughput time-series database (such as PostgreSQL with TimescaleDB or InfluxDB) to support multi-year historical queries, atomic transactions, and concurrent writes.
+- **Modern Transformer Forecasting**: Integrate advanced deep learning time-series architectures (e.g., PatchTST, DLinear, or gradient-boosted trees like LightGBM) enriched with academic calendars, examination periods, and local holidays as exogenous variables.
+- **IoT Smart Facility Automation**: Connect occupancy signals with Building Management Systems (BMS) for automated HVAC (air conditioning) and lighting control, optimizing energy efficiency based on real-time spatial utilization.
+- **Live Video Streaming Pipeline**: Implement RTSP / WebRTC direct stream ingestion to replace periodic Google Drive polling, delivering sub-second live detection feedback.
 
-Licensed under the Enterprise Proprietary License by **QIER**. Unauthorized copying, modification, distribution, or commercial exploitation of this software and associated documentation files without express written permission is strictly prohibited.
+---
+
+## 9. License
+
+BY QIER
