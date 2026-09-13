@@ -8,12 +8,19 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from PIL import Image
 
+import os, tempfile
+# 👇 เพิ่ม 3 บรรทัดนี้
+os.environ["TMPDIR"] = "/app"
+tempfile.gettempdir = lambda: "/app"
+print("[INIT] Temp directory fixed to /app for Docker compatibility.")
+
 # ---------------- CONFIG ---------------- #
 BASE_DIR = Path(os.getcwd())
 IMAGE_DIR = BASE_DIR / "images"
 PROCESSED_DIR = BASE_DIR / "processed"
-CREDENTIALS_FILE = BASE_DIR / "credentials.json"
-TOKEN_FILE = BASE_DIR / "token.pkl"
+CREDENTIALS_FILE = Path("/app/credentials.json")
+TOKEN_FILE = Path("/app/token.pkl")
+
 
 # Google Drive Folder ID
 FOLDER_ID = "1VY1Y9xOQnSrO81ZaDo1RMtf2yfhds6BK"
@@ -21,8 +28,14 @@ FOLDER_ID = "1VY1Y9xOQnSrO81ZaDo1RMtf2yfhds6BK"
 IMAGE_DIR.mkdir(exist_ok=True)
 PROCESSED_DIR.mkdir(exist_ok=True)
 
-# แก้ encoding ป้องกัน emoji error บน Windows
-sys.stdout.reconfigure(encoding="utf-8")
+# แก้ encoding ป้องกัน emoji error บน Windows หรือ stdout ปกติ
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+
+
 
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
@@ -57,7 +70,7 @@ def ensure_horizontal(image_path: Path):
             img = img.rotate(180, expand=True)
 
         img.save(image_path)
-        print(f"↩️ Rotated {image_path.name} to horizontal")
+        print(f"↩Rotated {image_path.name} to horizontal")
     except Exception as e:
         print(f"⚠️ Could not rotate {image_path.name}: {e}")
 

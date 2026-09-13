@@ -25,6 +25,7 @@ def create_rich_menu():
     print(f"✅ Created Rich Menu: {rich_menu_id}")
 
     # ใส่รูปปุ่ม
+    
     with open("button.png", "rb") as f:  # ต้องมีไฟล์ button.png อยู่ในโฟลเดอร์เดียวกัน
         line_bot_api.set_rich_menu_image(rich_menu_id, "image/png", f)
 

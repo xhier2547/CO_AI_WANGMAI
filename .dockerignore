@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+images/
+outputs/
+processed/
+dataset_tables/
+logs/
+tmp/
+airflow.db
+usage_stats.csv
+.git/
+.DS_Store
+Thumbs.db
+
+.pkl
+

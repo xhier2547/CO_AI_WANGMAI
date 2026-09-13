@@ -38,14 +38,33 @@ usage_stats.csv
 hourly_stats.csv
 period_stats.csv
 scheduler_log.txt
+*backup*.csv
 
 # ----------------
-# Credentials & Tokens
+# Credentials & Secrets
 # ----------------
+.env
+.env*.local
 credentials.json
 token.json
 token.pkl
 service_account.json
+
+# ----------------
+# Node & Web Frontend
+# ----------------
+node_modules/
+web/node_modules/
+web/.next/
+web/out/
+web/.env*.local
+
+# ----------------
+# Airflow & Databases
+# ----------------
+airflow.db
+*.db
+logs/
 
 # ----------------
 # Streamlit

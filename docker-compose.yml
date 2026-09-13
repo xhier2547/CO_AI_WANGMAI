@@ -1,20 +1,166 @@
 version: "3.8"
 
 services:
-  pipeline:
-    build: .
-    container_name: coai-pipeline
-    command: python pipeline_loop.py
+  # =========================================
+  # 🗄️ Database (PostgreSQL)
+  # =========================================
+  postgres:
+    image: postgres:14
+    container_name: airflow_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
     volumes:
-      - .:/app
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
     restart: always
 
-  dashboard:
+  # =========================================
+  # ⚙️ Airflow Initialization
+  # =========================================
+  airflow-init:
     build: .
-    container_name: coai-dashboard
-    command: streamlit run dashboard.py --server.headless true --server.port=8501
+    container_name: airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db init && \
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+      - TZ=Asia/Bangkok
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas numpy matplotlib scikit-learn statsmodels plotly pmdarima ultralytics
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./:/app
+      - /tmp:/tmp
+    depends_on:
+      - postgres
+    restart: on-failure
+
+  # =========================================
+  # 🌐 Airflow Webserver
+  # =========================================
+  airflow-webserver:
+    build: .
+    container_name: airflow_webserver
+    command: ["airflow", "webserver"]
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=my_super_secret_key
+      - AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE=True
+      - TZ=Asia/Bangkok
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas numpy matplotlib scikit-learn statsmodels plotly pmdarima ultralytics
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./:/app
+      - /tmp:/tmp
+    depends_on:
+      - postgres
+    restart: always
+
+  # =========================================
+  # ⏰ Airflow Scheduler
+  # =========================================
+  airflow-scheduler:
+    mem_limit: 6g
+    mem_reservation: 4g
+    build: .
+    container_name: airflow_scheduler
+    command: ["airflow", "scheduler"]
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=my_super_secret_key
+      - AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE=True
+      - TZ=Asia/Bangkok
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas numpy matplotlib scikit-learn statsmodels plotly pmdarima ultralytics
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./:/app
+      - /tmp:/tmp
+    depends_on:
+      - postgres
+    restart: always
+
+  # =========================================
+  # 📊 Streamlit Dashboard
+  # =========================================
+  streamlit:
+    build: .
+    container_name: coworking_dashboard
+    entrypoint: ""
+    command: streamlit run /app/dashboard.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
+    environment:
+      - TZ=Asia/Bangkok
+      - PYTHONUNBUFFERED=1
     volumes:
-      - .:/app
+      - ./:/app
+      - /tmp:/tmp
     restart: always
+    depends_on:
+      - airflow-scheduler
+
+  # =========================================
+  # 💬 LINE Bot
+  # =========================================
+  linebot:
+    build: .
+    container_name: coworking_linebot
+    command: python /app/line_bot.py
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Bangkok
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./:/app
+      - /tmp:/tmp
+    restart: always
+    depends_on:
+      - airflow-scheduler
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"] 
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+# =========================================
+# 🧱 Volumes
+# =========================================
+volumes:
+  postgres_data:
